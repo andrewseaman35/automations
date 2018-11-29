@@ -58,10 +58,10 @@ class Deploy():
 
     def upload_package(self):
         local_file_path = LOCAL_PATH_FORMAT.format(
-            function_name=self.config['function_name']
+            function_name=self.function_name
         )
         key = KEY_FORMAT.format(
-            function_name=self.config['function_name'],
+            function_name=self.function_name,
             nonce=self.nonce,
         )
         print("Uploading {} to {}".format(
@@ -77,7 +77,7 @@ class Deploy():
 
         self.validate_config()
 
-        self.config['function_name'] = self.config.get('function_name', self.subdir)
+        self.function_name = self.subdir
         self.config['runtime'] = self.config.get('runtime', DEFAULT_CONFIG['runtime'])
         self.config['role'] = self.config.get('role', DEFAULT_CONFIG['role'])
         self.config['description'] = self.config.get(
@@ -138,14 +138,14 @@ class Deploy():
         self.events_client.put_targets(
             Rule=self.event_rule_name,
             Targets=[{
-                'Id': self.config['function_name'],
+                'Id': self.function_name,
                 'Arn': function_arn
             }]
         )
 
     def lambda_function_exists(self):
         try:
-            self.lambda_client.get_function(FunctionName=self.config['function_name'])
+            self.lambda_client.get_function(FunctionName=self.function_name)
         except ClientError as exception:
             if exception.response['Error']['Code'] == 'ResourceNotFoundException':
                 return False
@@ -154,7 +154,7 @@ class Deploy():
 
     def create_lambda_function(self):
         response = self.lambda_client.create_function(
-            FunctionName=self.config['function_name'],
+            FunctionName=self.function_name,
             Runtime=self.config['runtime'],
             Role=self.config['role'],
             Handler=self.config['handler'],
@@ -167,18 +167,18 @@ class Deploy():
 
     def delete_lambda_function(self):
         self.lambda_client.delete_function(
-            FunctionName=self.config['function_name']
+            FunctionName=self.function_name
         )
 
     def update_lambda_function(self):
         self.lambda_client.update_function_configuration(
-            FunctionName=self.config['function_name'],
+            FunctionName=self.function_name,
             Runtime=self.config['runtime'],
             Role=self.config['role'],
             Handler=self.config['handler'],
         )
         response = self.lambda_client.update_function_code(
-            FunctionName=self.config['function_name'],
+            FunctionName=self.function_name,
             S3Bucket=self.config['s3_bucket'],
             S3Key=self.config['s3_key'],
             Publish=True,
@@ -228,7 +228,7 @@ class Deploy():
         print("")
         print("Invoke with:")
         print("   python invoke.py {function_name} {profile}".format(
-            function_name=self.config['function_name'],
+            function_name=self.function_name,
             profile=('--profile={}'.format(self.aws_profile)
                      if self.aws_profile else '')
             ))

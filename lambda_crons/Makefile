@@ -7,7 +7,7 @@ package_dir:
 	mkdir -p $(PACKAGE_DIR)
 	mkdir -p $(PACKAGE_DIR)/$(LAMBDA_FUNCTION)
 
-package: package_dir venv
+package: package_dir
 	venv/bin/pip install -r $(LAMBDA_FUNCTION)/requirements.txt -t $(PACKAGE_DIR)/$(LAMBDA_FUNCTION)
 	cp -r $(LAMBDA_FUNCTION)/* $(PACKAGE_DIR)/$(LAMBDA_FUNCTION)
 	cp base/lambda_handler_base.py $(PACKAGE_DIR)/$(LAMBDA_FUNCTION)

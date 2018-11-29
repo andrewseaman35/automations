@@ -4,7 +4,10 @@ import os
 import boto3
 import requests
 
-from lambda_handler_base import LambdaHandler
+if os.environ.get('_HANDLER'):
+    from lambda_handler_base import LambdaHandler
+else:
+    from base.lambda_handler_base import LambdaHandler
 
 TOKEN_URL = "http://portal.scscourt.org/api/traffic/token"
 SEARCH_URL = "http://portal.scscourt.org/api/traffic/search"
@@ -45,3 +48,7 @@ class TrafficTicketLambdaHandler(LambdaHandler):
 
 def lambda_handler(event, context):
     return TrafficTicketLambdaHandler.handle(event, context)
+
+if __name__ == '__main__':
+    print('Use invoke.py please!')
+    print('   python invoke.py traffic_ticket --local')

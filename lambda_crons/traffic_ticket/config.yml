@@ -1,4 +1,3 @@
-function_name: traffic_ticket
 runtime: python3.7
 description: Checks to see if my traffic ticket is in the system
 handler: lambda_handler.lambda_handler

@@ -1,4 +1,5 @@
 import argparse
+import importlib
 
 import boto3
 
@@ -9,7 +10,8 @@ class Invoke():
         self._setup_parser()
         self.args = self.parser.parse_args()
 
-        self.init_aws()
+        if not self.args.local:
+            self.init_aws()
 
         self.lambda_function_name = self.args.lambda_function_name
 
@@ -21,6 +23,7 @@ class Invoke():
 
     def _setup_parser(self):
         self.parser.add_argument("lambda_function_name", help="subdirectory of lambda function")
+        self.parser.add_argument("--local", help="add if running locally", action='store_true')
         self.parser.add_argument("--profile", help="AWS profile to use")
 
     def _run(self):
@@ -30,7 +33,13 @@ class Invoke():
         print(response)
 
     def run(self):
-        self._run()
+        if not self.args.local:
+            self._run()
+        else:
+            # Is this too hacky? :/
+            handler = importlib.import_module("{}.lambda_handler".format(self.lambda_function_name))
+            handler.lambda_handler(None, None)
+
 
 
 if __name__ == '__main__':
