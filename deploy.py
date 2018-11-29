@@ -1,0 +1,238 @@
+import argparse
+import os
+import subprocess
+import time
+import yaml
+
+from botocore.exceptions import ClientError
+import boto3
+
+TEMPLATE_FILE = '{root}/config/web_template.json'
+OUTPUT_FILE = '{root}/website/js/config/config.js'
+
+S3_BUCKET = 'aseaman-lambda-functions'
+KEY_FORMAT = 'jobs/{function_name}_{nonce}.zip'
+
+LOCAL_PATH_FORMAT = 'packages/{function_name}.zip'
+
+DEFAULT_CONFIG = {
+    'runtime': 'python3.7',
+    'role': 'arn:aws:iam::560983357304:role/lambda_crons_role',
+    'description': 'Lambda function: {}',
+    'handler': 'lambda_function.lambda_handler',
+}
+
+VALID_TRIGGER_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+
+class Deploy():
+    """Command line tool to deploy cron style lambda functions to AWS."""
+
+    def __init__(self):
+        self.parser = argparse.ArgumentParser()
+        self._setup_parser()
+        self.args = self.parser.parse_args()
+
+        self.init_aws()
+
+        self.subdir = self.args.subdir
+        self.nonce = str(int(time.time()))
+
+        self.root = os.environ.get('ROOTDIR', os.getcwd())
+        self.dirpath = os.path.join(self.root, self.subdir)
+
+        self.load_function_config()
+        self.event_rule_name = self.days_to_event_rule_name(self.config['trigger_on_days'])
+
+    def _setup_parser(self):
+        self.parser.add_argument("subdir", help="subdirectory of lambda function")
+        self.parser.add_argument("--profile", help="AWS profile to use")
+
+    def init_aws(self):
+        self.aws_profile = self.args.profile
+        session = (boto3.session.Session(profile_name=self.aws_profile)
+                   if self.aws_profile else boto3.session.Session())
+        self.lambda_client = session.client('lambda', region_name='us-east-1')
+        self.s3_client = session.client('s3', region_name='us-east-1')
+        self.events_client = session.client('events', region_name='us-east-1')
+
+    def upload_package(self):
+        local_file_path = LOCAL_PATH_FORMAT.format(
+            function_name=self.config['function_name']
+        )
+        key = KEY_FORMAT.format(
+            function_name=self.config['function_name'],
+            nonce=self.nonce,
+        )
+        print("Uploading {} to {}".format(
+            local_file_path,
+            '{}:::{}'.format(S3_BUCKET, key)
+        ))
+        self.s3_client.upload_file(local_file_path, S3_BUCKET, key)
+        print("Upload complete!")
+
+    def load_function_config(self):
+        with open(os.path.join(self.dirpath, 'config.yml'), 'r') as f:
+            self.config = yaml.safe_load(f)
+
+        self.validate_config()
+
+        self.config['function_name'] = self.config.get('function_name', self.subdir)
+        self.config['runtime'] = self.config.get('runtime', DEFAULT_CONFIG['runtime'])
+        self.config['role'] = self.config.get('role', DEFAULT_CONFIG['role'])
+        self.config['description'] = self.config.get(
+            'description', DEFAULT_CONFIG['description'].format(self.subdir)
+        )
+        self.config['handler'] = self.config.get('handler', DEFAULT_CONFIG['handler'])
+        self.config['s3_bucket'] = self.config['code']['s3_bucket']
+        self.config['s3_key'] = self.config['code']['s3_key_format'].format(nonce=self.nonce)
+
+    def validate_config(self):
+        if 'code' not in self.config:
+            raise ValueError('`code` must be defined')
+        if not self.config.get('trigger_on_days', None):
+            raise ValueError('`trigger_on_days` must be defined and not empty')
+        for day in self.config['trigger_on_days']:
+            if day not in VALID_TRIGGER_DAYS:
+                raise ValueError('invalid day: {}, must be in {}'.format(day, VALID_TRIGGER_DAYS))
+        if '{nonce}' not in self.config['code']['s3_key_format']:
+            raise ValueError('{nonce} must be present in s3_key_format')
+
+    def days_to_event_rule_name(self, days):
+        return ''.join(sorted(
+            [day.title() for day in days],
+            key=lambda day: VALID_TRIGGER_DAYS.index(day)
+        ))
+
+    def get_existing_triggering_event_rules(self, lambda_arn):
+        response = self.events_client.list_rule_names_by_target(TargetArn=lambda_arn)
+        return response['RuleNames']
+
+    def event_rule_exists(self):
+        try:
+            self.events_client.describe_rule(Name=self.event_rule_name)
+        except ClientError as exception:
+            if exception.response['Error']['Code'] == 'ResourceNotFoundException':
+                return False
+            raise exception
+        return True
+
+    def remove_target_from_event_triggers(self, function_arn, event_names):
+        for event_name in event_names:
+            response = self.events_client.list_targets_by_rule(Rule=event_name)
+            target_id = next(target for target in response['Targets']
+                             if target['Arn'] == function_arn)['Id']
+            self.events_client.remove_targets(
+                Rule=event_name,
+                Ids=[target_id]
+            )
+
+    def create_event_trigger(self):
+        cron_days = ','.join([day.upper() for day in self.config['trigger_on_days']])
+        self.events_client.put_rule(
+            Name=self.event_rule_name,
+            ScheduleExpression='cron(0 16 ? * {days} *)'.format(days=cron_days)
+        )
+
+    def add_trigger_to_event(self, function_arn):
+        self.events_client.put_targets(
+            Rule=self.event_rule_name,
+            Targets=[{
+                'Id': self.config['function_name'],
+                'Arn': function_arn
+            }]
+        )
+
+    def lambda_function_exists(self):
+        try:
+            self.lambda_client.get_function(FunctionName=self.config['function_name'])
+        except ClientError as exception:
+            if exception.response['Error']['Code'] == 'ResourceNotFoundException':
+                return False
+            raise exception
+        return True
+
+    def create_lambda_function(self):
+        response = self.lambda_client.create_function(
+            FunctionName=self.config['function_name'],
+            Runtime=self.config['runtime'],
+            Role=self.config['role'],
+            Handler=self.config['handler'],
+            Code={
+                'S3Bucket': self.config['s3_bucket'],
+                'S3Key': self.config['s3_key'],
+            },
+        )
+        return response['FunctionArn']
+
+    def delete_lambda_function(self):
+        self.lambda_client.delete_function(
+            FunctionName=self.config['function_name']
+        )
+
+    def update_lambda_function(self):
+        self.lambda_client.update_function_configuration(
+            FunctionName=self.config['function_name'],
+            Runtime=self.config['runtime'],
+            Role=self.config['role'],
+            Handler=self.config['handler'],
+        )
+        response = self.lambda_client.update_function_code(
+            FunctionName=self.config['function_name'],
+            S3Bucket=self.config['s3_bucket'],
+            S3Key=self.config['s3_key'],
+            Publish=True,
+        )
+        return response['FunctionArn']
+
+    def make(self, *args, **kwargs):
+        envs = ['{}={}'.format(key.upper(), value) for key, value in kwargs.items()]
+        cmd = envs + ['make'] + list(args)
+        subprocess.call(' '.join(cmd), shell=True)
+
+    def _run(self):
+        self.make('clean')
+        self.make('package', lambda_function=self.subdir)
+
+        # Uploads the lambda function package to S3
+        self.upload_package()
+
+        # Delete the old lambda function instead of updating in order to not have to deal with
+        # versioning.
+        if self.lambda_function_exists():
+            print("Lambda function exists - deleting")
+            self.delete_lambda_function()
+
+        print("Creating lambda function")
+        function_arn = self.create_lambda_function()
+
+        # We need to check for triggers even though we deleted the last lambda function before
+        # the resulting ARN of the new one will be the same, so the old trigger will still work.
+        print("Checking for existing triggers")
+        existing_trigger_names = self.get_existing_triggering_event_rules(function_arn)
+        if existing_trigger_names:
+            print("Found {}, removing!".format(len/(existing_trigger_names)))
+            self.remove_target_from_event_triggers(function_arn, existing_trigger_names)
+
+        if not self.event_rule_exists():
+            print("Event does not exist - creating")
+            self.create_event_trigger()
+
+        print("Updating event with trigger")
+        self.add_trigger_to_event(function_arn)
+
+
+    def run(self):
+        self._run()
+        print("Done!")
+        print("")
+        print("Invoke with:")
+        print("   python invoke.py {function_name} {profile}".format(
+            function_name=self.config['function_name'],
+            profile=('--profile={}'.format(self.aws_profile)
+                     if self.aws_profile else '')
+            ))
+        print('')
+
+if __name__ == '__main__':
+    Deploy().run()

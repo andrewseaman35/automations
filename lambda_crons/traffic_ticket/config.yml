@@ -1,0 +1,11 @@
+function_name: traffic_ticket
+runtime: python3.7
+description: Checks to see if my traffic ticket is in the system
+handler: lambda_handler.lambda_handler
+code:
+  s3_bucket: aseaman-lambda-functions
+  s3_key_format: jobs/traffic_ticket_{nonce}.zip
+trigger_on_days:
+  - Mon
+  - Wed
+  - Fri
