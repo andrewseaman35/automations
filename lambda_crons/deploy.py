@@ -211,7 +211,7 @@ class Deploy():
         print("Checking for existing triggers")
         existing_trigger_names = self.get_existing_triggering_event_rules(function_arn)
         if existing_trigger_names:
-            print("Found {}, removing!".format(len/(existing_trigger_names)))
+            print("Found {}, removing!".format(len(existing_trigger_names)))
             self.remove_target_from_event_triggers(function_arn, existing_trigger_names)
 
         if not self.event_rule_exists():
