@@ -6,5 +6,9 @@ code:
   s3_key_format: jobs/traffic_ticket_{nonce}.zip
 trigger_on_days:
   - Mon
+  - Tue
   - Wed
+  - Thu
   - Fri
+  - Sat
+  - Sun
