@@ -192,7 +192,7 @@ class Deploy():
 
     def _run(self):
         self.make('clean')
-        self.make('package', lambda_function=self.subdir)
+        self.make('_package', lambda_function=self.subdir)
 
         # Uploads the lambda function package to S3
         self.upload_package()
