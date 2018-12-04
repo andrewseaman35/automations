@@ -108,14 +108,15 @@ class Deploy():
         response = self.events_client.list_rule_names_by_target(TargetArn=lambda_arn)
         return response['RuleNames']
 
-    def event_rule_exists(self):
+    def event_rule_arn(self):
         try:
-            self.events_client.describe_rule(Name=self.event_rule_name)
+            response = self.events_client.describe_rule(Name=self.event_rule_name)
         except ClientError as exception:
             if exception.response['Error']['Code'] == 'ResourceNotFoundException':
-                return False
+                return None
             raise exception
-        return True
+
+        return response['Arn']
 
     def remove_target_from_event_triggers(self, function_arn, event_names):
         for event_name in event_names:
@@ -129,18 +130,26 @@ class Deploy():
 
     def create_event_trigger(self):
         cron_days = ','.join([day.upper() for day in self.config['trigger_on_days']])
-        self.events_client.put_rule(
+        response = self.events_client.put_rule(
             Name=self.event_rule_name,
             ScheduleExpression='cron(0 16 ? * {days} *)'.format(days=cron_days)
         )
+        return response['RuleArn']
 
-    def add_trigger_to_event(self, function_arn):
+    def add_trigger_to_event(self, rule_arn, function_arn):
         self.events_client.put_targets(
             Rule=self.event_rule_name,
             Targets=[{
                 'Id': self.function_name,
                 'Arn': function_arn
             }]
+        )
+        self.lambda_client.add_permission(
+            FunctionName=self.function_name,
+            StatementId=self.event_rule_name,
+            Action='lambda:InvokeFunction',
+            Principal='events.amazonaws.com',
+            SourceArn=rule_arn,
         )
 
     def lambda_function_exists(self):
@@ -214,12 +223,13 @@ class Deploy():
             print("Found {}, removing!".format(len(existing_trigger_names)))
             self.remove_target_from_event_triggers(function_arn, existing_trigger_names)
 
-        if not self.event_rule_exists():
+        rule_arn = self.event_rule_arn()
+        if not rule_arn:
             print("Event does not exist - creating")
-            self.create_event_trigger()
+            rule_arn = self.create_event_trigger()
 
         print("Updating event with trigger")
-        self.add_trigger_to_event(function_arn)
+        self.add_trigger_to_event(rule_arn, function_arn)
 
 
     def run(self):
