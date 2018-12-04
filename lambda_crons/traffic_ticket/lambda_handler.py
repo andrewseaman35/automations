@@ -32,8 +32,6 @@ class TrafficTicketLambdaHandler(LambdaHandler):
         response = requests.post(SEARCH_URL, headers=headers, json=payload)
         data = response.json()
 
-        print(json.dumps(data, indent=4))
-
         if 'data' not in data:
             raise ValueError('received data in unexpected format: \n{}'.format(json.dumps(data, indent=4)))
 

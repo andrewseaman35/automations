@@ -1,0 +1,11 @@
+{
+    "searchText": "applId:(15655488)",
+    "fq": [],
+    "fl": "*",
+    "mm": "100%",
+    "df": "patentTitle",
+    "qf": "appEarlyPubNumber applId appLocation appType appStatus_txt appConfrNumber appCustNumber appGrpArtNumber appCls appSubCls appEntityStatus_txt patentNumber patentTitle primaryInventor firstNamedApplicant appExamName appExamPrefrdName appAttrDockNumber appPCTNumber appIntlPubNumber wipoEarlyPubNumber pctAppType firstInventorFile appClsSubCls rankAndInventorsList",
+    "facet": "true",
+    "sort": "applId asc",
+    "start": "0"
+}
