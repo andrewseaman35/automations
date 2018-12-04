@@ -13,6 +13,25 @@ PAYLOAD_FILE = 'payload.json'
 APPLICATION_NUMBER = 'US15655488'
 
 
+CONTENT_TEMPLATE = '''
+Patent Title: {patent_title}
+Application Number: {application_number}
+Last Updated: {last_updated}
+
+Current Status: {app_status}
+
+Recent Transactions:
+{transactions}
+'''
+
+
+def _transaction_text_from_transactions(transactions, limit=5):
+    transaction_text = ''
+    for transaction in transactions[:limit]:
+        transaction_text += '{recordDate}: {description}\n'.format(**transaction)
+    return transaction_text
+
+
 class PatentNumberLambdaHandler(LambdaHandler):
     sns_subject_template = "Patent Number Update"
 
@@ -28,8 +47,39 @@ class PatentNumberLambdaHandler(LambdaHandler):
 
         data = response.json()
 
-        print(json.dumps(data, indent=4))
+        number_found = data['queryResults']['searchResponse']['response']['numFound']
+        if number_found != 1:
+            content = "Whoa, there isn\'t exactly one record. There are {}!\n\n".format(number_found)
+            content += "You should just look at all the data...\n\n"
+            content += json.dumps(data, indent=4)
+            return
 
+        doc = data['queryResults']['searchResponse']['response']['docs'][0]
+
+        transactions = doc['transactions']
+        patent_number = doc['patentNumber']
+        patent_title = doc['patentTitle']
+        app_status = doc['appStatus_txt']
+        last_updated = doc['lastUpdatedTimestamp']
+
+        if patent_number:
+            content = "Wowee! It looks like you have a patent number!\n"
+            content += "  Check it out: {}\n".format(patent_number)
+        else:
+            content = "It doesn't look like you have a patent number just yet...\n"
+
+        content += CONTENT_TEMPLATE.format(
+            patent_title=patent_title,
+            application_number=APPLICATION_NUMBER,
+            last_updated=last_updated,
+            app_status=app_status,
+            transactions=_transaction_text_from_transactions(transactions)
+        )
+
+        cls.send_sns(
+            subject=cls.sns_subject_template,
+            content=content,
+        )
 
 
 def lambda_handler(event, context):
