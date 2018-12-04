@@ -4,8 +4,8 @@
     "fl": "*",
     "mm": "100%",
     "df": "patentTitle",
-    "qf": "appEarlyPubNumber applId appLocation appType appStatus_txt appConfrNumber appCustNumber appGrpArtNumber appCls appSubCls appEntityStatus_txt patentNumber patentTitle primaryInventor firstNamedApplicant appExamName appExamPrefrdName appAttrDockNumber appPCTNumber appIntlPubNumber wipoEarlyPubNumber pctAppType firstInventorFile appClsSubCls rankAndInventorsList",
-    "facet": "true",
+    "qf": "appEarlyPubNumber applId appStatus_txt patentNumber patentTitle",
+    "facet": "false",
     "sort": "applId asc",
     "start": "0"
 }
