@@ -52,8 +52,7 @@ class LambdaHandler():
         except Exception as e:
             print('Uh oh, error!')
             cls._handle_error(e)
-            traceback.princ_exc()
-            raise
+            traceback.print_exc()
 
     @classmethod
     def _handle_error(cls, e):

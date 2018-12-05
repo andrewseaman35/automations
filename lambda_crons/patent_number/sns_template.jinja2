@@ -1,0 +1,20 @@
+Hello!
+{% if available %}
+Wowee! It looks like you have a patent!
+Check it out: {{ patent_number }}
+{% else %}
+It doesn't look like you have a patent just yet...
+{% endif %}
+
+Last Updated: {{ last_updated }}
+Current Status: {{ app_status }}
+
+Recent Transactions: 
+{% for transaction in recent_transactions %}{{ transaction.recordDate }}: {{ transaction.description }}
+{% endfor %}
+
+--
+Just to make sure we're looking at the right thing...
+
+Patent Title: {{ patent_title }}
+Application Number: {{ application_number }}
