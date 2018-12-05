@@ -3,9 +3,11 @@ import boto3
 
 class LambdaHandler():
     sns_arn = 'arn:aws:sns:us-east-1:560983357304:lambda_crons'
-    sns_client = boto3.client('sns')
     sns_subject_template = "Lambda Cron Update"
     sns_subject_error = "Lambda Cron Error!"
+
+    sns_client = boto3.client('sns')
+    ssm_client = boto3.client('ssm')
 
     @classmethod
     def _run(cls, event, context):
@@ -31,6 +33,11 @@ class LambdaHandler():
             subject=cls.sns_subject_error,
             content=content,
         )
+
+    @classmethod
+    def get_parameter(cls, name):
+        response = cls.ssm_client.get_parameter(Name=name)
+        return response['Parameter']['Value']
 
     @classmethod
     def send_sns(cls, subject, content):

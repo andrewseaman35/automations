@@ -12,6 +12,9 @@ else:
 TOKEN_URL = "http://portal.scscourt.org/api/traffic/token"
 SEARCH_URL = "http://portal.scscourt.org/api/traffic/search"
 
+SSM_DL_NUMBER = 'driver_license_number'
+SSM_BIRTHDATE = 'birthdate'
+
 
 class TrafficTicketLambdaHandler(LambdaHandler):
     sns_subject_template = "Ticket Update"
@@ -21,13 +24,16 @@ class TrafficTicketLambdaHandler(LambdaHandler):
     def _run(cls, event, context):
         response = requests.get(TOKEN_URL)
 
+        dl_number = cls.get_parameter(SSM_DL_NUMBER)
+        birthdate = cls.get_parameter(SSM_BIRTHDATE)
+
         token = response.json()['token']
         headers = {'Portal-Token': token}
         payload = {
             'type': 'dl',
             'userMessage': '',
-            'value': os.environ.get('dl_number'),
-            'dateOfBirth': os.environ.get('birthdate'),
+            'value': dl_number,
+            'dateOfBirth': birthdate,
         }
         response = requests.post(SEARCH_URL, headers=headers, json=payload)
         data = response.json()
