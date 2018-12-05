@@ -4,10 +4,7 @@ import os
 import boto3
 import requests
 
-if os.environ.get('_HANDLER'):
-    from lambda_handler_base import LambdaHandler
-else:
-    from base.lambda_handler_base import LambdaHandler
+from base.lambda_handler_base import LambdaHandler
 
 TOKEN_URL = "http://portal.scscourt.org/api/traffic/token"
 SEARCH_URL = "http://portal.scscourt.org/api/traffic/search"

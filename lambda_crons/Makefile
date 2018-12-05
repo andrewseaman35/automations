@@ -14,7 +14,7 @@ _package_dir:
 _package: _package_dir install_venv
 	install_venv/bin/pip install -r $(LAMBDA_FUNCTION)/requirements.txt -t $(PACKAGE_DIR)/$(LAMBDA_FUNCTION)
 	cp -r $(LAMBDA_FUNCTION)/* $(PACKAGE_DIR)/$(LAMBDA_FUNCTION)
-	cp base/lambda_handler_base.py $(PACKAGE_DIR)/$(LAMBDA_FUNCTION)
+	cp -r base $(PACKAGE_DIR)/$(LAMBDA_FUNCTION)
 	cd $(PACKAGE_DIR)/$(LAMBDA_FUNCTION) && zip -r ../$(LAMBDA_FUNCTION).zip *
 
 clean:

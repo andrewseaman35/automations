@@ -3,10 +3,7 @@ import os
 
 import requests
 
-if os.environ.get('_HANDLER'):
-    from lambda_handler_base import LambdaHandler
-else:
-    from base.lambda_handler_base import LambdaHandler
+from base.lambda_handler_base import LambdaHandler
 
 SEARCH_URL = 'https://ped.uspto.gov/api/queries'
 PAYLOAD_FILE = 'payload.json'
