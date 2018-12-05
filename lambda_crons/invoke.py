@@ -13,7 +13,7 @@ class Invoke():
         if not self.args.local:
             self.init_aws()
 
-        self.lambda_function_name = self.args.lambda_function_name
+        self.lambda_function_name = self.args.lambda_function_name.strip('/')
 
     def init_aws(self):
         self.aws_profile = self.args.profile

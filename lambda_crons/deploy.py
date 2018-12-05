@@ -35,7 +35,7 @@ class Deploy():
 
         self.init_aws()
 
-        self.subdir = self.args.subdir
+        self.subdir = self.args.subdir.strip('/')
         self.nonce = str(int(time.time()))
 
         self.root = os.environ.get('ROOTDIR', os.getcwd())
