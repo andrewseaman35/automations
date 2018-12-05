@@ -54,9 +54,7 @@ class TrafficTicketLambdaHandler(LambdaHandler):
         content += json.dumps(data, indent=4)
 
         cls.put_state({
-            'found': {
-                'BOOL': updates_found
-            }
+            'available': {'BOOL': updates_found},
         })
 
         cls.send_sns(

@@ -35,6 +35,8 @@ def _transaction_text_from_transactions(transactions, limit=5):
 class PatentNumberLambdaHandler(LambdaHandler):
     sns_subject_template = "Patent Number Update"
 
+    ddb_state_id = 'patent_number'
+
     @classmethod
     def _run(cls, event, context):
         base_directory = os.path.dirname(os.path.abspath(__file__))
@@ -75,6 +77,13 @@ class PatentNumberLambdaHandler(LambdaHandler):
             app_status=app_status,
             transactions=_transaction_text_from_transactions(transactions)
         )
+
+        cls.put_state({
+            'app_status': {'S': app_status},
+            'last_updated': {'S': last_updated},
+            'patent_number': {'S': patent_number if patent_number else 'none'},
+            'available': {'BOOL': bool(patent_number)}
+        })
 
         cls.send_sns(
             subject=cls.sns_subject_template,
