@@ -38,7 +38,7 @@ class Invoke():
         else:
             # Is this too hacky? :/
             handler = importlib.import_module("{}.lambda_handler".format(self.lambda_function_name))
-            handler.lambda_handler(None, None)
+            handler.lambda_handler({'local': True, 'local_dir': self.lambda_function_name}, None)
 
 
 

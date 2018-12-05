@@ -16,8 +16,10 @@ SSM_BIRTHDATE = 'birthdate'
 class TrafficTicketLambdaHandler(LambdaHandler):
     sns_subject_template = "Ticket Update"
     sns_subject_error = "Ticket Update Error!"
-
+    
     ddb_state_id = "traffic_ticket_status"
+
+    state_keys = {'available'}
 
     @classmethod
     def _run(cls, event, context):
@@ -40,24 +42,10 @@ class TrafficTicketLambdaHandler(LambdaHandler):
         if 'data' not in data:
             raise ValueError('received data in unexpected format: \n{}'.format(json.dumps(data, indent=4)))
 
-        updates_found = bool(data['data'])
-        if not updates_found:
-            print("No updates!")
-            content = "Hello! I don't think there are any updates, but here's the data just in case!\n"
-        else:
-            print("There might be updates!")
-            content = "Hello! There might be something for you! Check out the data!\n"
-
-        content += json.dumps(data, indent=4)
-
-        cls.put_state({
-            'available': {'BOOL': updates_found},
-        })
-
-        cls.send_sns(
-            subject=cls.sns_subject_template,
-            content=content,
-        )
+        return {
+            'available': bool(data['data']),
+            'response_string': json.dumps(data, indent=4),
+        }
 
 
 def lambda_handler(event, context):
