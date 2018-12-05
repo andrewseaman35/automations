@@ -1,4 +1,8 @@
+import datetime
 import boto3
+
+
+STATE_TABLE = 'states'
 
 
 class LambdaHandler():
@@ -6,6 +10,7 @@ class LambdaHandler():
     sns_subject_template = "Lambda Cron Update"
     sns_subject_error = "Lambda Cron Error!"
 
+    ddb_client = boto3.client('dynamodb')
     sns_client = boto3.client('sns')
     ssm_client = boto3.client('ssm')
 
@@ -32,6 +37,21 @@ class LambdaHandler():
         cls.send_sns(
             subject=cls.sns_subject_error,
             content=content,
+        )
+
+    @classmethod
+    def put_state(cls, item):
+        item.update({
+            'id': {
+                'S': cls.ddb_state_id,
+            },
+            'time_updated': {
+                'S': datetime.datetime.now().isoformat(),
+            }
+        })
+        cls.ddb_client.put_item(
+            TableName=STATE_TABLE,
+            Item=item
         )
 
     @classmethod

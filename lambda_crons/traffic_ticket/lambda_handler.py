@@ -20,6 +20,8 @@ class TrafficTicketLambdaHandler(LambdaHandler):
     sns_subject_template = "Ticket Update"
     sns_subject_error = "Ticket Update Error!"
 
+    ddb_state_id = "traffic_ticket_status"
+
     @classmethod
     def _run(cls, event, context):
         response = requests.get(TOKEN_URL)
@@ -41,7 +43,8 @@ class TrafficTicketLambdaHandler(LambdaHandler):
         if 'data' not in data:
             raise ValueError('received data in unexpected format: \n{}'.format(json.dumps(data, indent=4)))
 
-        if not data['data']:
+        updates_found = bool(data['data'])
+        if not updates_found:
             print("No updates!")
             content = "Hello! I don't think there are any updates, but here's the data just in case!\n"
         else:
@@ -49,6 +52,12 @@ class TrafficTicketLambdaHandler(LambdaHandler):
             content = "Hello! There might be something for you! Check out the data!\n"
 
         content += json.dumps(data, indent=4)
+
+        cls.put_state({
+            'found': {
+                'BOOL': updates_found
+            }
+        })
 
         cls.send_sns(
             subject=cls.sns_subject_template,
