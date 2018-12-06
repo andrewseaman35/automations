@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+from dateutil import parser as date_parser
 import json
 import os
 
@@ -10,6 +12,14 @@ PAYLOAD_FILE = 'payload.json'
 APPLICATION_NUMBER = 'US15655488'
 
 TRANSACTIONS_LIMIT = 5
+
+
+def get_days_since_update(last_update_timestamp):
+    # Assumes timestamp is UTC
+    last_updated_dt = date_parser.parse(last_update_timestamp)
+    now_dt = datetime.now(timezone.utc)
+    delta = now_dt - last_updated_dt
+    return delta.days
 
 
 class PatentNumberLambdaHandler(LambdaHandler):
@@ -29,15 +39,10 @@ class PatentNumberLambdaHandler(LambdaHandler):
         )
 
         data = response.json()
-
-        number_found = data['queryResults']['searchResponse']['response']['numFound']
-        if number_found != 1:
-            content = "Whoa, there isn\'t exactly one record. There are {}!\n\n".format(number_found)
-            content += "You should just look at all the data...\n\n"
-            content += json.dumps(data, indent=4)
-            return
-
         doc = data['queryResults']['searchResponse']['response']['docs'][0]
+
+        # "Recent" in this context is within the last day, since this should run every day
+        updated_recently = get_days_since_update(doc['lastUpdatedTimestamp']) < 1
 
         result = {
             'application_number': doc['applIdStr'],
@@ -46,6 +51,7 @@ class PatentNumberLambdaHandler(LambdaHandler):
             'patent_title': doc['patentTitle'],
             'app_status': doc['appStatus_txt'],
             'last_updated': doc['lastUpdatedTimestamp'],
+            'updated_recently': updated_recently,
             'available': bool(doc['patentNumber']),
         }
 

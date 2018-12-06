@@ -1,4 +1,5 @@
 Hello!
+{% if updated_recently %}This was updated within the last day! Things are changing!{% endif %}
 {% if available %}
 Wowee! It looks like you have a patent!
 Check it out: {{ patent_number }}
@@ -9,7 +10,7 @@ It doesn't look like you have a patent just yet...
 Last Updated: {{ last_updated }}
 Current Status: {{ app_status }}
 
-Recent Transactions: 
+Recent Transactions:
 {% for transaction in recent_transactions %}{{ transaction.recordDate }}: {{ transaction.description }}
 {% endfor %}
 
