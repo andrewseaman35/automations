@@ -1,4 +1,6 @@
 import datetime
+import json
+import os
 import traceback
 
 import boto3
@@ -19,9 +21,15 @@ class LambdaHandler():
     ssm_client = boto3.client('ssm')
 
     @classmethod
-    def _before_run(cls, event):
+    def _parse_event(cls, event):
         cls.is_local = event.get('local', False)
         cls.local_dir = event.get('local_dir', None)
+        cls.allow_aws = event.get('allow_aws', False) if cls.is_local else True
+        cls.take_input = event.get('take_input', False) if cls.is_local else False
+
+    @classmethod
+    def _before_run(cls, event):
+        cls._parse_event(event)
         cls.template_env = cls.init_template_env()
         cls.sns_template = cls.template_env.get_template(cls.sns_template_filename)
 
@@ -95,21 +103,44 @@ class LambdaHandler():
                 'S': datetime.datetime.now().isoformat(),
             }
         })
-        cls.ddb_client.put_item(
-            TableName=STATE_TABLE,
-            Item=item
-        )
+        print("\n++++++++++++++\n")
+        print("New DynamoDB State{}:".format("" if cls.allow_aws else " (not updated)"))
+        print("\n=====\n")
+        print(json.dumps(item, indent=4))
+        print("\n++++++++++++++\n")
+        if cls.allow_aws:
+            cls.ddb_client.put_item(
+                TableName=STATE_TABLE,
+                Item=item
+            )
 
     @classmethod
     def get_parameter(cls, name):
-        response = cls.ssm_client.get_parameter(Name=name)
-        return response['Parameter']['Value']
+        if cls.allow_aws:
+            response = cls.ssm_client.get_parameter(Name=name)
+            value = response['Parameter']['Value']
+        else:
+            if  cls.is_local and cls.take_input:
+                value = input("Value required from Parameter Store, {}: ".format(name))
+            else:
+                print("Value required from Parameter Store, checking ENV")
+                value = os.environ.get(name)
+                if not value:
+                    raise ValueError("{} required, either add `--take-input` flag or add to ENV".format(name))
+        return value
 
     @classmethod
     def send_sns(cls, subject, content):
-        print("Sending SNS: {}, {}".format(subject, content))
-        cls.sns_client.publish(
-            TopicArn=cls.sns_arn,
-            Subject=subject,
-            Message=content,
-        )
+        print("\n++++++++++++++\n")
+        print("SNS Content{}:".format("" if cls.allow_aws else " (not sent)"))
+        print("\n=====\n")
+        print("Subject: {}".format(subject))
+        print("\n---\n")
+        print(content)
+        print("\n++++++++++++++\n")
+        if cls.allow_aws:
+            cls.sns_client.publish(
+                TopicArn=cls.sns_arn,
+                Subject=subject,
+                Message=content,
+            )
