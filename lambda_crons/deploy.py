@@ -20,6 +20,7 @@ DEFAULT_CONFIG = {
     'role': 'arn:aws:iam::560983357304:role/lambda_crons_role',
     'description': 'Lambda function: {}',
     'handler': 'lambda_function.lambda_handler',
+    'enabled': True,
 }
 
 VALID_TRIGGER_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -78,6 +79,7 @@ class Deploy():
         self.validate_config()
 
         self.function_name = self.subdir
+        self.config['enabled'] = self.config.get('enabled', DEFAULT_CONFIG['enabled'])
         self.config['runtime'] = self.config.get('runtime', DEFAULT_CONFIG['runtime'])
         self.config['role'] = self.config.get('role', DEFAULT_CONFIG['role'])
         self.config['description'] = self.config.get(
@@ -228,8 +230,11 @@ class Deploy():
             print("Event does not exist - creating")
             rule_arn = self.create_event_trigger()
 
-        print("Updating event with trigger")
-        self.add_trigger_to_event(rule_arn, function_arn)
+        if self.config['enabled']:
+            print("Updating event with trigger")
+            self.add_trigger_to_event(rule_arn, function_arn)
+        else:
+            print("Function not enabled, not adding trigger")
 
 
     def run(self):

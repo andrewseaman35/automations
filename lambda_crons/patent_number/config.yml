@@ -4,6 +4,7 @@ handler: lambda_handler.lambda_handler
 code:
   s3_bucket: aseaman-lambda-functions
   s3_key_format: jobs/patent_number_{nonce}.zip
+enabled: true
 trigger_on_days:
   - Mon
   - Tue
