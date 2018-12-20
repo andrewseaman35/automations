@@ -1,5 +1,5 @@
 runtime: python3.7
-description: Checks to see if my traffic ticket is in the system
+description: Checks for updates to my patent application
 handler: lambda_handler.lambda_handler
 code:
   s3_bucket: aseaman-lambda-functions

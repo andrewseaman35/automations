@@ -85,6 +85,8 @@ class Deploy():
         self.config['description'] = self.config.get(
             'description', DEFAULT_CONFIG['description'].format(self.subdir)
         )
+        if not self.config['enabled']:
+            self.config['description'] = 'DISABLED - {}'.format(self.config['description'])
         self.config['handler'] = self.config.get('handler', DEFAULT_CONFIG['handler'])
         self.config['s3_bucket'] = self.config['code']['s3_bucket']
         self.config['s3_key'] = self.config['code']['s3_key_format'].format(nonce=self.nonce)
@@ -167,6 +169,7 @@ class Deploy():
         response = self.lambda_client.create_function(
             FunctionName=self.function_name,
             Runtime=self.config['runtime'],
+            Description=self.config['description'],
             Role=self.config['role'],
             Handler=self.config['handler'],
             Code={
