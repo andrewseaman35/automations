@@ -80,10 +80,12 @@ class LambdaHandler():
                 continue
             if isinstance(value, str):
                 _type = 'S'
-                if not value:
-                    value = 'none'
+                value = value or 'none'
             elif isinstance(value, bool):
                 _type = 'BOOL'
+            else:
+                raise TypeError('unsupported type for {}: {}'.format(value, type(value)))
+
             state[key] = {
                 _type: value
             }

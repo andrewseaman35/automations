@@ -15,6 +15,8 @@ KEY_FORMAT = 'jobs/{function_name}_{nonce}.zip'
 
 LOCAL_PATH_FORMAT = 'packages/{function_name}.zip'
 
+DEFAULT_AWS_REGION = 'us-east-1'
+
 DEFAULT_CONFIG = {
     'runtime': 'python3.7',
     'role': 'arn:aws:iam::560983357304:role/lambda_crons_role',
@@ -48,14 +50,16 @@ class Deploy():
     def _setup_parser(self):
         self.parser.add_argument("subdir", help="subdirectory of lambda function")
         self.parser.add_argument("--profile", help="AWS profile to use")
+        self.parser.add_argument("--region", help="AWS region to use")
 
     def init_aws(self):
         self.aws_profile = self.args.profile
+        self.aws_region = self.args.region or DEFAULT_AWS_REGION
         session = (boto3.session.Session(profile_name=self.aws_profile)
                    if self.aws_profile else boto3.session.Session())
-        self.lambda_client = session.client('lambda', region_name='us-east-1')
-        self.s3_client = session.client('s3', region_name='us-east-1')
-        self.events_client = session.client('events', region_name='us-east-1')
+        self.lambda_client = session.client('lambda', region_name=self.aws_region)
+        self.s3_client = session.client('s3', region_name=self.aws_region)
+        self.events_client = session.client('events', region_name=self.aws_region)
 
     def upload_package(self):
         local_file_path = LOCAL_PATH_FORMAT.format(
