@@ -16,17 +16,16 @@ SSM_BIRTHDATE = 'birthdate'
 class TrafficTicketLambdaHandler(LambdaHandler):
     sns_subject_template = "Ticket Update"
     sns_subject_error = "Ticket Update Error!"
-    
+
     ddb_state_id = "traffic_ticket_status"
 
     state_keys = {'available'}
 
-    @classmethod
-    def _run(cls, event, context):
+    def _run(self, event, context):
         response = requests.get(TOKEN_URL)
 
-        dl_number = cls.get_parameter(SSM_DL_NUMBER)
-        birthdate = cls.get_parameter(SSM_BIRTHDATE)
+        dl_number = self.get_parameter(SSM_DL_NUMBER)
+        birthdate = self.get_parameter(SSM_BIRTHDATE)
 
         token = response.json()['token']
         headers = {'Portal-Token': token}
@@ -49,7 +48,8 @@ class TrafficTicketLambdaHandler(LambdaHandler):
 
 
 def lambda_handler(event, context):
-    return TrafficTicketLambdaHandler.handle(event, context)
+    return TrafficTicketLambdaHandler().handle(event, context)
+
 
 if __name__ == '__main__':
     print('Use invoke.py please!')

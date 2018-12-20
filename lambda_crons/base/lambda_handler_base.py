@@ -20,63 +20,55 @@ class LambdaHandler():
     sns_client = boto3.client('sns')
     ssm_client = boto3.client('ssm')
 
-    @classmethod
-    def _parse_event(cls, event):
-        cls.is_local = event.get('local', False)
-        cls.local_dir = event.get('local_dir', None)
-        cls.allow_aws = event.get('allow_aws', False) if cls.is_local else True
-        cls.take_input = event.get('take_input', False) if cls.is_local else False
+    def _parse_event(self, event):
+        self.is_local = event.get('local', False)
+        self.local_dir = event.get('local_dir', None)
+        self.allow_aws = event.get('allow_aws', False) if self.is_local else True
+        self.take_input = event.get('take_input', False) if self.is_local else False
 
-    @classmethod
-    def _before_run(cls, event):
-        cls._parse_event(event)
-        cls.template_env = cls.init_template_env()
-        cls.sns_template = cls.template_env.get_template(cls.sns_template_filename)
+    def _before_run(self, event):
+        self._parse_event(event)
+        self.template_env = self.init_template_env()
+        self.sns_template = self.template_env.get_template(self.sns_template_filename)
 
-    @classmethod
-    def init_template_env(cls):
-        template_search_path = '{}/'.format(cls.local_dir) if cls.is_local else './'
+    def init_template_env(self):
+        template_search_path = '{}/'.format(self.local_dir) if self.is_local else './'
         template_loader = jinja2.FileSystemLoader(searchpath=template_search_path)
         template_env = jinja2.Environment(loader=template_loader)
         return template_env
 
-    @classmethod
-    def _run(cls, event, context):
+    def _run(self, event, context):
         raise NotImplementedError()
 
-    @classmethod
-    def _after_run(cls, result):
-        state = cls.build_state_from_result(result)
-        cls.put_state(state)
-        content = cls.build_content_from_result(result)
-        cls.send_sns(cls.sns_subject_template, content)
+    def _after_run(self, result):
+        state = self.build_state_from_result(result)
+        self.put_state(state)
+        content = self.build_content_from_result(result)
+        self.send_sns(self.sns_subject_template, content)
 
-    @classmethod
-    def handle(cls, event, context):
+    def handle(self, event, context):
         try:
-            cls._before_run(event)
-            result = cls._run(event, context)
-            cls._after_run(result)
+            self._before_run(event)
+            result = self._run(event, context)
+            self._after_run(result)
         except Exception as e:
             print('Uh oh, error!')
-            cls._handle_error(e)
+            self._handle_error(e)
             traceback.print_exc()
 
-    @classmethod
-    def _handle_error(cls, e):
+    def _handle_error(self, e):
         content = 'Hello! Looks like your function failed...\n'
         content += 'Here\'s the exception: \n'
         content += '{}'.format(str(e))
-        cls.send_sns(
-            subject=cls.sns_subject_error,
+        self.send_sns(
+            subject=self.sns_subject_error,
             content=content,
         )
 
-    @classmethod
-    def build_state_from_result(cls, result):
+    def build_state_from_result(self, result):
         state = {}
         for key, value in result.items():
-            if key not in cls.state_keys:
+            if key not in self.state_keys:
                 continue
             if isinstance(value, str):
                 _type = 'S'
@@ -91,38 +83,35 @@ class LambdaHandler():
             }
         return state
 
-    @classmethod
-    def build_content_from_result(cls, result):
-        return cls.sns_template.render(**result)
+    def build_content_from_result(self, result):
+        return self.sns_template.render(**result)
 
-    @classmethod
-    def put_state(cls, item):
+    def put_state(self, item):
         item.update({
             'id': {
-                'S': cls.ddb_state_id,
+                'S': self.ddb_state_id,
             },
             'time_updated': {
                 'S': datetime.datetime.now().isoformat(),
             }
         })
         print("\n++++++++++++++\n")
-        print("New DynamoDB State{}:".format("" if cls.allow_aws else " (not updated)"))
+        print("New DynamoDB State{}:".format("" if self.allow_aws else " (not updated)"))
         print("\n=====\n")
         print(json.dumps(item, indent=4))
         print("\n++++++++++++++\n")
-        if cls.allow_aws:
-            cls.ddb_client.put_item(
+        if self.allow_aws:
+            self.ddb_client.put_item(
                 TableName=STATE_TABLE,
                 Item=item
             )
 
-    @classmethod
-    def get_parameter(cls, name):
-        if cls.allow_aws:
-            response = cls.ssm_client.get_parameter(Name=name)
+    def get_parameter(self, name):
+        if self.allow_aws:
+            response = self.ssm_client.get_parameter(Name=name)
             value = response['Parameter']['Value']
         else:
-            if  cls.is_local and cls.take_input:
+            if  self.is_local and self.take_input:
                 value = input("Value required from Parameter Store, {}: ".format(name))
             else:
                 print("Value required from Parameter Store, checking ENV")
@@ -131,18 +120,17 @@ class LambdaHandler():
                     raise ValueError("{} required, either add `--take-input` flag or add to ENV".format(name))
         return value
 
-    @classmethod
-    def send_sns(cls, subject, content):
+    def send_sns(self, subject, content):
         print("\n++++++++++++++\n")
-        print("SNS Content{}:".format("" if cls.allow_aws else " (not sent)"))
+        print("SNS Content{}:".format("" if self.allow_aws else " (not sent)"))
         print("\n=====\n")
         print("Subject: {}".format(subject))
         print("\n---\n")
         print(content)
         print("\n++++++++++++++\n")
-        if cls.allow_aws:
-            cls.sns_client.publish(
-                TopicArn=cls.sns_arn,
+        if self.allow_aws:
+            self.sns_client.publish(
+                TopicArn=self.sns_arn,
                 Subject=subject,
                 Message=content,
             )

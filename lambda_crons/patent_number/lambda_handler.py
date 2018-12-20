@@ -28,8 +28,7 @@ class PatentNumberLambdaHandler(LambdaHandler):
 
     state_keys = {'app_status', 'last_updated', 'patent_number', 'available'}
 
-    @classmethod
-    def _run(cls, event, context):
+    def _run(self, event, context):
         base_directory = os.path.dirname(os.path.abspath(__file__))
         payload = json.load(open(os.path.join(base_directory, PAYLOAD_FILE)))
 
@@ -59,7 +58,8 @@ class PatentNumberLambdaHandler(LambdaHandler):
 
 
 def lambda_handler(event, context):
-    return PatentNumberLambdaHandler.handle(event, context)
+    return PatentNumberLambdaHandler().handle(event, context)
+
 
 if __name__ == '__main__':
     print('Use invoke.py please!')
