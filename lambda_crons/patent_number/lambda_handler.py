@@ -28,6 +28,26 @@ class PatentNumberLambdaHandler(LambdaHandler):
 
     state_keys = {'app_status', 'last_updated', 'patent_number', 'available'}
 
+    def _build_result_from_doc(self, doc):
+        # "Recent" in this context is within the last day, since this should run every day
+        updated_recently = get_days_since_update(doc['lastUpdatedTimestamp']) < 1
+
+        patent_number = doc.get('patentNumber', '')
+        available = bool(patent_number)
+
+        result = {
+            'application_number': doc['applIdStr'],
+            'recent_transactions': doc['transactions'][:TRANSACTIONS_LIMIT],
+            'patent_number': patent_number,
+            'patent_title': doc['patentTitle'],
+            'app_status': doc['appStatus_txt'],
+            'last_updated': doc['lastUpdatedTimestamp'],
+            'updated_recently': updated_recently,
+            'available': available,
+        }
+
+        return result
+
     def _run(self, event, context):
         base_directory = os.path.dirname(os.path.abspath(__file__))
         payload = json.load(open(os.path.join(base_directory, PAYLOAD_FILE)))
@@ -40,21 +60,7 @@ class PatentNumberLambdaHandler(LambdaHandler):
         data = response.json()
         doc = data['queryResults']['searchResponse']['response']['docs'][0]
 
-        # "Recent" in this context is within the last day, since this should run every day
-        updated_recently = get_days_since_update(doc['lastUpdatedTimestamp']) < 1
-
-        result = {
-            'application_number': doc['applIdStr'],
-            'recent_transactions': doc['transactions'][:TRANSACTIONS_LIMIT],
-            'patent_number': doc['patentNumber'],
-            'patent_title': doc['patentTitle'],
-            'app_status': doc['appStatus_txt'],
-            'last_updated': doc['lastUpdatedTimestamp'],
-            'updated_recently': updated_recently,
-            'available': bool(doc['patentNumber']),
-        }
-
-        return result
+        return self._build_result_from_doc(doc)
 
 
 def lambda_handler(event, context):
