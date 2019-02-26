@@ -45,7 +45,9 @@ class Deploy():
         self.dirpath = os.path.join(self.root, self.subdir)
 
         self.load_function_config()
-        self.event_rule_name = self.days_to_event_rule_name(self.config['trigger_on_days'])
+        self.event_rule_name = self.schedule_expression_to_event_rule_name(
+            self.config['schedule_expression']
+        )
 
     def _setup_parser(self):
         self.parser.add_argument("subdir", help="subdirectory of lambda function")
@@ -98,19 +100,21 @@ class Deploy():
     def validate_config(self):
         if 'code' not in self.config:
             raise ValueError('`code` must be defined')
-        if not self.config.get('trigger_on_days', None):
-            raise ValueError('`trigger_on_days` must be defined and not empty')
-        for day in self.config['trigger_on_days']:
-            if day not in VALID_TRIGGER_DAYS:
-                raise ValueError('invalid day: {}, must be in {}'.format(day, VALID_TRIGGER_DAYS))
+        if not self.config.get('schedule_expression', None):
+            raise ValueError('`schedule_expression` must be defined and not empty')
+        if not self.config['schedule_expression'].startswith(('cron', 'rate')):
+            raise ValueError('`schedule_expression` must be for cron or rate')
         if '{nonce}' not in self.config['code']['s3_key_format']:
             raise ValueError('{nonce} must be present in s3_key_format')
 
-    def days_to_event_rule_name(self, days):
-        return ''.join(sorted(
-            [day.title() for day in days],
-            key=lambda day: VALID_TRIGGER_DAYS.index(day)
-        ))
+    def schedule_expression_to_event_rule_name(self, expression):
+        split_expression = expression.replace('*', 'x').replace('?', 'q').strip(')').split('(')
+        expression_type = split_expression[0]
+        expression_statement = '_'.join(split_expression[1].replace(',', ' ').split(' '))
+        return '{}-{}'.format(
+            expression_type,
+            expression_statement
+        )
 
     def get_existing_triggering_event_rules(self, lambda_arn):
         response = self.events_client.list_rule_names_by_target(TargetArn=lambda_arn)
@@ -137,10 +141,9 @@ class Deploy():
             )
 
     def create_event_trigger(self):
-        cron_days = ','.join([day.upper() for day in self.config['trigger_on_days']])
         response = self.events_client.put_rule(
             Name=self.event_rule_name,
-            ScheduleExpression='cron(0 16 ? * {days} *)'.format(days=cron_days)
+            ScheduleExpression=self.config['schedule_expression']
         )
         return response['RuleArn']
 
