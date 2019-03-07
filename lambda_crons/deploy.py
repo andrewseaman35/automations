@@ -45,9 +45,6 @@ class Deploy():
         self.dirpath = os.path.join(self.root, self.subdir)
 
         self.load_function_config()
-        self.event_rule_name = self.schedule_expression_to_event_rule_name(
-            self.config['schedule_expression']
-        )
 
     def _setup_parser(self):
         self.parser.add_argument("subdir", help="subdirectory of lambda function")
@@ -100,10 +97,11 @@ class Deploy():
     def validate_config(self):
         if 'code' not in self.config:
             raise ValueError('`code` must be defined')
-        if not self.config.get('schedule_expression', None):
-            raise ValueError('`schedule_expression` must be defined and not empty')
-        if not self.config['schedule_expression'].startswith(('cron', 'rate')):
-            raise ValueError('`schedule_expression` must be for cron or rate')
+        if not self.config.get('schedule_expressions'):
+            raise ValueError('`schedule_expressions` must be defined and not empty')
+        for schedule_expression in self.config['schedule_expressions']:
+            if not schedule_expression.startswith(('cron', 'rate')):
+                raise ValueError('all `schedule_expressions` must be cron or rate')
         if '{nonce}' not in self.config['code']['s3_key_format']:
             raise ValueError('{nonce} must be present in s3_key_format')
 
@@ -120,9 +118,9 @@ class Deploy():
         response = self.events_client.list_rule_names_by_target(TargetArn=lambda_arn)
         return response['RuleNames']
 
-    def event_rule_arn(self):
+    def event_rule_arn(self, event_rule_name):
         try:
-            response = self.events_client.describe_rule(Name=self.event_rule_name)
+            response = self.events_client.describe_rule(Name=event_rule_name)
         except ClientError as exception:
             if exception.response['Error']['Code'] == 'ResourceNotFoundException':
                 return None
@@ -140,16 +138,16 @@ class Deploy():
                 Ids=[target_id]
             )
 
-    def create_event_trigger(self):
+    def create_event_trigger(self, event_rule_name, schedule_expression):
         response = self.events_client.put_rule(
-            Name=self.event_rule_name,
-            ScheduleExpression=self.config['schedule_expression']
+            Name=event_rule_name,
+            ScheduleExpression=schedule_expression
         )
         return response['RuleArn']
 
-    def add_trigger_to_event(self, rule_arn, function_arn):
+    def add_trigger_to_event(self, event_rule_name, rule_arn, function_arn):
         self.events_client.put_targets(
-            Rule=self.event_rule_name,
+            Rule=event_rule_name,
             Targets=[{
                 'Id': self.function_name,
                 'Arn': function_arn
@@ -157,7 +155,7 @@ class Deploy():
         )
         self.lambda_client.add_permission(
             FunctionName=self.function_name,
-            StatementId=self.event_rule_name,
+            StatementId=event_rule_name,
             Action='lambda:InvokeFunction',
             Principal='events.amazonaws.com',
             SourceArn=rule_arn,
@@ -235,16 +233,19 @@ class Deploy():
             print("Found {}, removing!".format(len(existing_trigger_names)))
             self.remove_target_from_event_triggers(function_arn, existing_trigger_names)
 
-        rule_arn = self.event_rule_arn()
-        if not rule_arn:
-            print("Event does not exist - creating")
-            rule_arn = self.create_event_trigger()
+        for schedule_expression in self.config['schedule_expressions']:
+            print("Adding schedule expression: {}".format(schedule_expression))
+            event_rule_name = self.schedule_expression_to_event_rule_name(schedule_expression)
+            event_rule_arn = self.event_rule_arn(event_rule_name)
+            if not event_rule_arn:
+                print("   Event does not exist - creating")
+                event_rule_arn = self.create_event_trigger(event_rule_name, schedule_expression)
 
-        if self.config['enabled']:
-            print("Updating event with trigger")
-            self.add_trigger_to_event(rule_arn, function_arn)
-        else:
-            print("Function not enabled, not adding trigger")
+            if self.config['enabled']:
+                print("   Updating event with trigger")
+                self.add_trigger_to_event(event_rule_name, event_rule_arn, function_arn)
+            else:
+                print("   Function not enabled, not adding trigger")
 
 
     def run(self):

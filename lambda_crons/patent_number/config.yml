@@ -5,4 +5,6 @@ code:
   s3_bucket: aseaman-lambda-functions
   s3_key_format: jobs/patent_number_{nonce}.zip
 enabled: true
-schedule_expression: cron(0 16 ? * MON,TUE,WED,THU,FRI,SAT,SUN *)
+schedule_expressions:
+  - cron(0 16 ? * MON,WED,FRI,SAT,SUN *)
+  - cron(0 14 ? * TUE,THU *)
