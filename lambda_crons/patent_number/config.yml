@@ -4,7 +4,7 @@ handler: lambda_handler.lambda_handler
 code:
   s3_bucket: aseaman-lambda-functions
   s3_key_format: jobs/patent_number_{nonce}.zip
-enabled: true
+enabled: false
 schedule_expressions:
   - cron(0 15 ? * MON,WED,FRI,SAT,SUN *)
   - cron(0 14 ? * TUE,THU *)
