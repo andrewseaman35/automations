@@ -1,4 +1,5 @@
 from collections import defaultdict
+from datetime import date
 import json
 import os
 import re
@@ -6,9 +7,10 @@ import sys
 
 FILENAME_REGEX = re.compile(r"^Chase(?P<card>\d{4})_Activity(?P<start_year>\d{4})(?P<start_month>\d{2})(?P<start_day>\d{2})_(?P<end_year>\d{4})(?P<end_month>\d{2})(?P<end_day>\d{2})_(\d{8}).CSV$")
 
+DATE_FORMAT = '%Y %b %d'
 CONFIG_FILE_NAME = './config.json'
 IN_DIR = './inputs'
-OUT_DIR = './categorized'
+OUT_DIR = './output'
 
 PAYMENT_CATEGORY = 'payments'
 
@@ -19,12 +21,14 @@ class Config(object):
         self._config = None
         self.categories = None
         self.categorization = None
+        self.unshared_categories = None
         self.reload()
 
     def reload(self):
         self._config = json.load(open(self.filename, 'r'))
         self.categories = sorted(self._config['categorization'].keys())
         self.categorization = self._config['categorization']
+        self.unshared_categories = set(self._config['unshared_categories'])
         self.search_terms = self.get_search_term_dict()
 
     def serialize(self):
@@ -137,7 +141,16 @@ class Transaction(object):
 
 def parse_filename(filename):
     match = FILENAME_REGEX.match(filename)
-    return match.groupdict()
+    groups = match.groupdict()
+    start_date = date(int(groups['start_year']), int(groups['start_month']), int(groups['start_day']))
+    end_date = date(int(groups['end_year']), int(groups['end_month']), int(groups['end_day']))
+    return {
+        'card': groups['card'],
+        'start_date': start_date,
+        'formatted_start_date': start_date.strftime(DATE_FORMAT),
+        'end_date': end_date,
+        'formatted_end_date': end_date.strftime(DATE_FORMAT),
+    }
 
 
 def load_config():
@@ -165,89 +178,96 @@ def do_work(filename):
 def get_filenames(indir):
     chase_inputs = sorted(
         [f for f in os.listdir(indir) if os.path.isfile(os.path.join(indir, f))],
-        key=lambda fn: '{start_year}{start_month}{start_day}'.format(**parse_filename(fn))
+        key=lambda fn: parse_filename(fn)['start_date']
     )
     filename_to_parsed = {f: parse_filename(f) for f in chase_inputs}
     for i, ci in enumerate(chase_inputs, start=1):
         filename_to_parsed[ci]['index'] = i
-        print('({index}): {card} | {start_year}/{start_month}/{start_day} - {end_year}/{end_month}/{end_day}'.format(
-            **filename_to_parsed[ci]
+        print('({index}): {card} | {start} - {end}'.format(
+            index=filename_to_parsed[ci]['index'],
+            card=filename_to_parsed[ci]['card'],
+            start=filename_to_parsed[ci]['start_date'].strftime(DATE_FORMAT),
+            end=filename_to_parsed[ci]['end_date'].strftime(DATE_FORMAT),
         ))
     indexes = input('\nSelect files (space separated): ')
     indexes = [int(i)-1 for i in indexes.split(' ')]
     return [chase_inputs[i] for i in indexes]
 
 def validate_file_dates(parsed_filenames):
-    start_years = [pf['start_year'] for pf in parsed_filenames]
-    start_months = [pf['start_month'] for pf in parsed_filenames]
-    start_days = [pf['start_day'] for pf in parsed_filenames]
-    end_years = [pf['end_year'] for pf in parsed_filenames]
-    end_months = [pf['end_month'] for pf in parsed_filenames]
-    end_days = [pf['end_day'] for pf in parsed_filenames]
-    assert len(set(start_years)) == 1, 'multiple start_years: {}'.format(start_years)
-    assert len(set(start_months)) == 1, 'multiple start_months: {}'.format(start_months)
-    assert len(set(start_days)) == 1, 'multiple start_days: {}'.format(start_days)
-    assert len(set(end_years)) == 1, 'multiple end_years: {}'.format(end_years)
-    assert len(set(end_months)) == 1, 'multiple end_months: {}'.format(end_months)
-    assert len(set(end_days)) == 1, 'multiple end_days: {}'.format(end_days)
+    start_dates = set([pf['start_date'] for pf in parsed_filenames])
+    end_dates = set([pf['end_date'] for pf in parsed_filenames])
+    assert len(set(start_dates)) == 1, 'multiple start_dates: {}'.format(start_dates)
+    assert len(set(end_dates)) == 1, 'multiple end_dates: {}'.format(end_dates)
 
 
-all_transactions = []
-filenames = get_filenames(IN_DIR)
-parsed_filename_by_filename = {os.path.basename(f): parse_filename(os.path.basename(f)) for f in filenames}
-validate_file_dates(parsed_filename_by_filename.values())
+def run():
+    all_transactions = []
+    filenames = get_filenames(IN_DIR)
+    parsed_filename_by_filename = {
+        os.path.basename(f): parse_filename(os.path.basename(f)) for f in filenames
+    }
+    validate_file_dates(parsed_filename_by_filename.values())
 
-output_filename = None
-for filename in filenames:
-    filename = os.path.join(IN_DIR, filename)
-    parsed_filename = parsed_filename_by_filename[os.path.basename(filename)]
-    if output_filename is None:
-        output_filename = '{start_year}-{start_month}-{start_day}_{end_year}-{end_month}-{end_day}.csv'.format(
-            **parsed_filename
-        )
-    print(" == {} ==".format(parsed_filename['card']))
-    all_transactions.extend(do_work(filename))
+    output_filename = None
+    for filename in filenames:
+        filename = os.path.join(IN_DIR, filename)
+        parsed_filename = parsed_filename_by_filename[os.path.basename(filename)]
+        if output_filename is None:
+            output_filename = '{start}-{end}.csv'.format(
+                start=parsed_filename['formatted_start_date'].replace(' ', '_'),
+                end=parsed_filename['formatted_end_date'].replace(' ', '_'),
+            )
+        print(" == {} ==".format(parsed_filename['card']))
+        all_transactions.extend(do_work(filename))
 
-total_total = 0
-transactions_by_category = {c: [] for c in _config.categories}
-total_by_category = {c: 0 for c in _config.categories}
-for transaction in sorted(all_transactions, key=lambda t: t.transaction_date):
-    transactions_by_category[transaction.our_category].append(transaction)
-    total_by_category[transaction.our_category] += transaction.amount
-    total_total += 0 if transaction.is_payment else transaction.amount
+    total_total = 0
+    transactions_by_category = {c: [] for c in _config.categories}
+    total_by_category = {c: 0 for c in _config.categories}
+    for transaction in sorted(all_transactions, key=lambda t: t.transaction_date):
+        transactions_by_category[transaction.our_category].append(transaction)
+        total_by_category[transaction.our_category] += transaction.amount
+        total_total += 0 if transaction.is_payment else transaction.amount
 
-with open('{}/{}'.format(OUT_DIR, output_filename), 'w') as f:
-    f.write('{},{},{},{}\n'.format(
-        'transaction_date',
-        'description',
-        'amount',
-        'category',
-    ))
-    for category in _config.categories:
-        for transaction in transactions_by_category[category]:
-            f.write('{},{},{},{}\n'.format(
-                transaction.transaction_date,
-                transaction.description,
-                transaction.amount,
-                category,
-            ))
+    summary_parsed = parsed_filename_by_filename[next(iter(parsed_filename_by_filename.keys()))]
+    summary_line_headers = ['Date']
+    summary_line_values = ['{}-{}'.format(summary_parsed['start_date'].year, summary_parsed['start_date'].year)]
+    for category in [c for c in _config.categories if c != PAYMENT_CATEGORY]:
+        summary_line_headers.append(category)
+        summary_line_values.append(round(total_by_category[category], 2))
+    summary_line_headers.append('Total')
+    summary_line_values.append(total_total)
+    summary_line_headers.append('Total Shared')
+    summary_line_values.append(round(total_total - sum(total_by_category[cat] for cat in _config.unshared_categories), 2))
+
+    with open('{}/{}'.format(OUT_DIR, output_filename), 'w') as f:
+        f.write('{},{},{},{}\n'.format(
+            'transaction_date',
+            'description',
+            'amount',
+            'category',
+        ))
+        for category in _config.categories:
+            for transaction in transactions_by_category[category]:
+                f.write('{},{},{},{}\n'.format(
+                    transaction.transaction_date,
+                    transaction.description,
+                    transaction.amount,
+                    category,
+                ))
+            f.write('\n')
+
+        f.write('\n')
+        for category in _config.categories:
+            f.write('{},{}\n'.format(category, round(total_by_category[category], 2)))
+
+        f.write('\n')
+        f.write(','.join([str(h) for h in summary_line_headers]))
+        f.write('\n')
+        f.write(','.join([str(v) for v in summary_line_values]))
         f.write('\n')
 
-    f.write('\n')
-    for category in _config.categories:
-        f.write('{},{}\n'.format(category, round(total_by_category[category], 2)))
-
-    f.write('\n')
-    f.write('Total,{}\n'.format(round(total_total, 2)))
-    f.write('Total Shared,{}'.format(
-        round(total_total - total_by_category['mama'] - total_by_category['papa'], 2)
-    ))
-
-
-
-
-
-
+if __name__ == '__main__':
+    run()
 
 
 
