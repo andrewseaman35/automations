@@ -150,7 +150,7 @@ int getSensorData(int sensorId) {
 }
 
 void connectWiFi() {
-  digitalWrite(WIFI_PIN, LOW);
+  digitalWrite(WIFI_PIN, HIGH);
   Serial.print("Attempting to connect to SSID: ");
   Serial.print(ssid);
   Serial.print(" ");
@@ -170,11 +170,11 @@ void connectWiFi() {
 
   Serial.println("You're connected to the network");
   Serial.println();
-  digitalWrite(WIFI_PIN, HIGH);
+  digitalWrite(WIFI_PIN, LOW);
 }
 
 void connectMQTT() {
-  digitalWrite(MQTT_PIN, LOW);
+  digitalWrite(MQTT_PIN, HIGH);
   Serial.print("Attempting to MQTT broker: ");
   Serial.print(broker);
   Serial.println(" ");
@@ -191,7 +191,7 @@ void connectMQTT() {
       Serial.print(".");
     }
   }
-  digitalWrite(MQTT_PIN, HIGH);
+  digitalWrite(MQTT_PIN, LOW);
   Serial.println();
 
   Serial.println("You're connected to the MQTT broker");
