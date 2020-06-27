@@ -22,17 +22,21 @@ const long MQTT_CONNECTING_INTERVAL = 1000;
 const long WIFI_PRINT_INTERVAL = 5000;
 const long MQTT_PRINT_INTERVAL = 5000;
 
-#define RUNNING_PIN 0
-#define WIFI_PIN 1
-#define MQTT_PIN 2
-#define SENSOR_ONE_TRIGGER_PIN 3
-#define SENSOR_ONE_ECHO_PIN 4
+#define RUNNING_PIN 5
+#define WIFI_PIN 4
+#define MQTT_PIN 6
 
-// Unused for now
-#define SENSOR_TWO_TRIGGER_PIN 5
-#define SENSOR_TWO_ECHO_PIN 6
-#define SENSOR_THREE_TRIGGER_PIN 7
-#define SENSOR_THREE_ECHO_PIN 8
+#define SENSOR_ONE_ECHO_PIN 0
+#define SENSOR_ONE_TRIGGER_PIN 1
+
+#define SENSOR_TWO_TRIGGER_PIN 2
+#define SENSOR_TWO_ECHO_PIN 3
+
+#define SENSOR_THREE_TRIGGER_PIN 8
+#define SENSOR_THREE_ECHO_PIN 7
+
+#define SENSOR_FOUR_TRIGGER_PIN 10
+#define SENSOR_FOUR_ECHO_PIN 9
 
 int builtInLEDState = LOW;
 int wifiLEDState = LOW;
@@ -44,12 +48,15 @@ const char waterSoftenerId[] = "softener_one";
 
 const int SENSING_INTERVAL = 1000 * 60; // one minute
 
-#define SENSOR_COUNT 1
+#define SENSOR_COUNT 4
 #define MAX_DISTANCE 1000
-#define SENSOR_SAMPLE_COUNT 10
+#define SENSOR_SAMPLE_COUNT 5
 
 NewPing sonar[SENSOR_COUNT] = {
-  NewPing(SENSOR_ONE_TRIGGER_PIN, SENSOR_ONE_ECHO_PIN, MAX_DISTANCE)
+  NewPing(SENSOR_ONE_TRIGGER_PIN, SENSOR_ONE_ECHO_PIN, MAX_DISTANCE),
+  NewPing(SENSOR_TWO_TRIGGER_PIN, SENSOR_TWO_ECHO_PIN, MAX_DISTANCE),
+  NewPing(SENSOR_THREE_TRIGGER_PIN, SENSOR_THREE_ECHO_PIN, MAX_DISTANCE),
+  NewPing(SENSOR_FOUR_TRIGGER_PIN, SENSOR_FOUR_ECHO_PIN, MAX_DISTANCE)
 };
 
 void setup() {
@@ -132,20 +139,22 @@ unsigned long getTime() {
 
 int getSensorData(int sensorId) {
   int sum = 0;
-  for (int currSensor = 0; currSensor < SENSOR_COUNT; currSensor += 1) {
-    for (int i = 0; i < SENSOR_SAMPLE_COUNT; i += 1) {
-      int distance = sonar[currSensor].ping_cm();
-      delay(1000);
-      Serial.print(distance);
-      Serial.println("cm");
-      sum += distance;
-    } 
+  Serial.print("Sensor ");
+  Serial.print(sensorId);
+  Serial.print(": [");
+  for (int i = 0; i < SENSOR_SAMPLE_COUNT; i += 1) {
+    int distance = sonar[sensorId].ping_cm();
+    delay(1000);
+    Serial.print(distance);
+    Serial.print(", ");
+    sum += distance;
   }
+  Serial.println("]");
   Serial.print(sum / SENSOR_SAMPLE_COUNT);
-  Serial.println("cm");
+  Serial.println("cm (average)");
 
   int average = (int)(sum / SENSOR_SAMPLE_COUNT);
-  
+
   return average;
 }
 
@@ -203,13 +212,16 @@ void gatherSensorDataAndPublish() {
   Serial.println("Publishing message");
 
   // Build JSON message to publish
-  const size_t capacity = JSON_OBJECT_SIZE(5);
+  const size_t capacity = JSON_OBJECT_SIZE(10);
   DynamicJsonDocument doc(capacity);
   doc["timestamp"] = getTime();
   doc["water_softener_id"] = waterSoftenerId;
   for (int i = 0; i < SENSOR_COUNT; i += 1) {
+    Serial.print("sensor--");
+    Serial.println("sensor_" + String(i));
     doc["sensor_" + String(i)] = getSensorData(i);
   }
+  
 
   mqttClient.beginMessage("sensor/salt_level");
   serializeJson(doc, mqttClient);
