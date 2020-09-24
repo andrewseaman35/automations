@@ -9,7 +9,9 @@ from base.lambda_handler_base import LambdaHandler
 
 SEARCH_URL = 'https://ped.uspto.gov/api/queries'
 PAYLOAD_FILE = 'payload.json'
-APPLICATION_NUMBER = 'US15655488'
+
+HAPTIC_APPLICATION_NUMBER = '15655488'
+PEDIGREE_APPLICATION_NUMBER = '16948311'
 
 TRANSACTIONS_LIMIT = 5
 
@@ -24,9 +26,17 @@ def get_days_since_update(last_update_timestamp):
 
 class PatentNumberLambdaHandler(LambdaHandler):
     sns_subject_template = "Patent Number Update"
-    ddb_state_id = 'patent_number'
+    patent_application_format = 'patent_application-{}'
 
     state_keys = {'app_status', 'last_updated', 'patent_number', 'available'}
+
+    def __init__(self):
+        super(PatentNumberLambdaHandler, self).__init__()
+        self.application_number = None
+
+    @property
+    def ddb_state_id(self):
+        return self.patent_application_format.format(self.application_number)
 
     def _build_result_from_doc(self, doc):
         # "Recent" in this context is within the last day, since this should run every day
@@ -45,8 +55,21 @@ class PatentNumberLambdaHandler(LambdaHandler):
             'updated_recently': updated_recently,
             'available': available,
         }
+        print(result)
 
         return result
+
+    def _build_empty_result(self, application_number):
+        return {
+            'application_number': application_number,
+            'recent_transactions': [],
+            'patent_number': '',
+            'patent_title': '',
+            'app_status': '',
+            'last_updated': '',
+            'updated_recently': False,
+            'available': False,
+        }
 
     def _run(self, event, context):
         base_directory = os.path.dirname(os.path.abspath(__file__))
@@ -58,9 +81,13 @@ class PatentNumberLambdaHandler(LambdaHandler):
         )
 
         data = response.json()
-        doc = data['queryResults']['searchResponse']['response']['docs'][0]
+        docs = data['queryResults']['searchResponse']['response']['docs']
+        doc = docs and docs[0]
 
-        return self._build_result_from_doc(doc)
+        self.application_number = payload['searchText'].split('(')[1].split(')')[0]
+        result = self._build_result_from_doc(doc) if doc else self._build_empty_result(self.application_number)
+
+        return result
 
 
 def lambda_handler(event, context):
