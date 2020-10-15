@@ -5,11 +5,11 @@ import boto3
 
 
 # If any sensor crosses this threshold, send the associated notification
-SNS_EMAIL_ANY_THRESHOLD = 30
+SNS_EMAIL_ANY_THRESHOLD = 50
 
 # If the average of the sensors crosses this threshold on any single record,
 # send a notification
-SNS_EMAIL_AVG_THRESHOLD = 15
+SNS_EMAIL_AVG_THRESHOLD = 30
 
 SNS_EMAIL_TOPIC_ARN = 'arn:aws:sns:us-east-1:560983357304:SaltLevelEmail'
 sns_client = boto3.client('sns')

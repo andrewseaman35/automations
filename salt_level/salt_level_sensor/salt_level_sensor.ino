@@ -16,7 +16,8 @@ WiFiClient    wifiClient;            // Used for the TCP socket connection
 BearSSLClient sslClient(wifiClient); // Used for SSL/TLS connection, integrates with ECC508
 MqttClient    mqttClient(sslClient);
 
-const long RUNNING_BLINK_INTERVAL = 1000;
+const long RUNNING_BLINK_INTERVAL = 10000;
+const long RUNNING_BLINK_DURATION = 100;
 const long WIFI_CONNECTING_INTERVAL = 1000;
 const long MQTT_CONNECTING_INTERVAL = 1000;
 const long WIFI_PRINT_INTERVAL = 5000;
@@ -43,14 +44,15 @@ int wifiLEDState = LOW;
 int mqttLEDState = LOW;
 
 unsigned long lastRunningBlinkMillis = 0;
+unsigned long lastRunningBlunkDurationMillis = 0;
 unsigned long lastSensorMillis = 0;
 const char waterSoftenerId[] = "softener_one";
 
-const int SENSING_INTERVAL = 1000 * 60; // one minute
+const int SENSING_INTERVAL = 1000 * 60 * 60 * 24; // one day
 
 #define SENSOR_COUNT 4
-#define MAX_DISTANCE 1000
-#define SENSOR_SAMPLE_COUNT 5
+#define MAX_DISTANCE 100
+#define SENSOR_SAMPLE_COUNT 8
 
 NewPing sonar[SENSOR_COUNT] = {
   NewPing(SENSOR_ONE_TRIGGER_PIN, SENSOR_ONE_ECHO_PIN, MAX_DISTANCE),
@@ -83,9 +85,16 @@ void setup() {
 
 void loop() {
   unsigned long currentMillis = millis();
-  if (currentMillis - lastRunningBlinkMillis > RUNNING_BLINK_INTERVAL) {
+
+  if (builtInLEDState == HIGH) {
+    if (currentMillis - lastRunningBlunkDurationMillis > RUNNING_BLINK_DURATION) {
+      builtInLEDState = LOW;
+      digitalWrite(RUNNING_PIN, builtInLEDState);
+    }
+  } else if (currentMillis - lastRunningBlinkMillis > RUNNING_BLINK_INTERVAL) {
     lastRunningBlinkMillis = currentMillis;
-    builtInLEDState = builtInLEDState == LOW ? HIGH : LOW;
+    lastRunningBlunkDurationMillis = currentMillis;
+    builtInLEDState = HIGH;
     digitalWrite(RUNNING_PIN, builtInLEDState);
   }
   if (currentMillis - lastSensorMillis > SENSING_INTERVAL) {
@@ -222,7 +231,6 @@ void gatherSensorDataAndPublish() {
     doc["sensor_" + String(i)] = getSensorData(i);
   }
   
-
   mqttClient.beginMessage("sensor/salt_level");
   serializeJson(doc, mqttClient);
   mqttClient.print(millis());
