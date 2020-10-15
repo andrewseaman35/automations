@@ -13,6 +13,7 @@ IN_DIR = './inputs'
 OUT_DIR = './output'
 
 PAYMENT_CATEGORY = 'payments'
+SKIP_KEYWORDS = {'skip'}
 
 
 class Config(object):
@@ -76,6 +77,8 @@ class Transaction(object):
 
     def ask_for_keyword(self):
         inp = input('Keyword for "{}": '.format(self.description))
+        if inp.lower() in SKIP_KEYWORDS:
+            return None
         if not inp:
             return self.description
         if inp not in self.description:
@@ -101,6 +104,8 @@ class Transaction(object):
             keyword = self.ask_for_keyword()
             if keyword is not None:
                 _config.add_keyword_to_known_categorization(category, keyword)
+            else:
+                print("  - skipped -")
 
         return category
 
@@ -141,6 +146,8 @@ class Transaction(object):
 
 def parse_filename(filename):
     match = FILENAME_REGEX.match(filename)
+    if not match:
+        return None
     groups = match.groupdict()
     start_date = date(int(groups['start_year']), int(groups['start_month']), int(groups['start_day']))
     end_date = date(int(groups['end_year']), int(groups['end_month']), int(groups['end_day']))
@@ -175,9 +182,10 @@ def do_work(filename):
         transaction.set_our_category(confirm=False, update_config=True)
     return transactions
 
+
 def get_filenames(indir):
     chase_inputs = sorted(
-        [f for f in os.listdir(indir) if os.path.isfile(os.path.join(indir, f))],
+        [f for f in os.listdir(indir) if os.path.isfile(os.path.join(indir, f)) and parse_filename(f)],
         key=lambda fn: parse_filename(fn)['start_date']
     )
     filename_to_parsed = {f: parse_filename(f) for f in chase_inputs}
@@ -192,6 +200,7 @@ def get_filenames(indir):
     indexes = input('\nSelect files (space separated): ')
     indexes = [int(i)-1 for i in indexes.split(' ')]
     return [chase_inputs[i] for i in indexes]
+
 
 def validate_file_dates(parsed_filenames):
     start_dates = set([pf['start_date'] for pf in parsed_filenames])
@@ -268,6 +277,3 @@ def run():
 
 if __name__ == '__main__':
     run()
-
-
-
