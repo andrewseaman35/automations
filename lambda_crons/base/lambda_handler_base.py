@@ -1,13 +1,8 @@
-import datetime
-import json
 import os
 import traceback
 
 import boto3
 import jinja2
-
-
-STATE_TABLE = 'states'
 
 
 class LambdaHandler():
@@ -16,18 +11,23 @@ class LambdaHandler():
     sns_subject_error = "Lambda Cron Error!"
     sns_template_filename = 'sns_template.jinja2'
 
-    ddb_client = boto3.client('dynamodb')
-    sns_client = boto3.client('sns')
-    ssm_client = boto3.client('ssm')
-
     def _parse_event(self, event):
         self.is_local = event.get('local', False)
         self.local_dir = event.get('local_dir', None)
         self.allow_aws = event.get('allow_aws', False) if self.is_local else True
         self.take_input = event.get('take_input', False) if self.is_local else False
+        self.aws_profile = event.get('aws_profile', None) if self.is_local and self.allow_aws else None
+
+    def _init_aws(self):
+        session = (boto3.session.Session(profile_name=self.aws_profile)
+           if self.aws_profile else boto3.session.Session())
+        self.ddb_client = session.client('dynamodb')
+        self.sns_client = session.client('sns')
+        self.ssm_client = session.client('ssm')
 
     def _before_run(self, event):
         self._parse_event(event)
+        self._init_aws()
         self.template_env = self.init_template_env()
         self.sns_template = self.template_env.get_template(self.sns_template_filename)
 
@@ -41,10 +41,9 @@ class LambdaHandler():
         raise NotImplementedError()
 
     def _after_run(self, result):
-        state = self.build_state_from_result(result)
-        self.put_state(state)
         content = self.build_content_from_result(result)
-        self.send_sns(self.sns_subject_template, content)
+        if content:
+            self.send_sns(self.sns_subject_template, content)
 
     def handle(self, event, context):
         try:
@@ -65,46 +64,8 @@ class LambdaHandler():
             content=content,
         )
 
-    def build_state_from_result(self, result):
-        state = {}
-        for key, value in result.items():
-            if key not in self.state_keys:
-                continue
-            if isinstance(value, str):
-                _type = 'S'
-                value = value or 'none'
-            elif isinstance(value, bool):
-                _type = 'BOOL'
-            else:
-                raise TypeError('unsupported type for {}: {}'.format(value, type(value)))
-
-            state[key] = {
-                _type: value
-            }
-        return state
-
     def build_content_from_result(self, result):
         return self.sns_template.render(**result)
-
-    def put_state(self, item):
-        item.update({
-            'id': {
-                'S': self.ddb_state_id,
-            },
-            'time_updated': {
-                'S': datetime.datetime.now().isoformat(),
-            }
-        })
-        print("\n++++++++++++++\n")
-        print("New DynamoDB State{}:".format("" if self.allow_aws else " (not updated)"))
-        print("\n=====\n")
-        print(json.dumps(item, indent=4))
-        print("\n++++++++++++++\n")
-        if self.allow_aws:
-            self.ddb_client.put_item(
-                TableName=STATE_TABLE,
-                Item=item
-            )
 
     def get_parameter(self, name):
         if self.allow_aws:

@@ -12,7 +12,7 @@ class Invoke():
         self.allow_aws = self.args.allow_aws
         self.take_input = self.args.take_input
 
-        if not self.args.local:
+        if not self.args.local or self.allow_aws:
             self.init_aws()
 
         self.lambda_function_name = self.args.lambda_function_name.strip('/')
@@ -47,6 +47,7 @@ class Invoke():
                 'allow_aws': self.allow_aws,
                 'local_dir': self.lambda_function_name,
                 'take_input': self.take_input,
+                'aws_profile': self.aws_profile,
             }, None)
 
 

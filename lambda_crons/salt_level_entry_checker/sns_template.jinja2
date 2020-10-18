@@ -1,0 +1,11 @@
+Hello!
+
+I couldn't find a salt level entry from today ({{ formatted_today_date }}).
+
+{% if days_since_last_entry < 0 %}
+... in fact, I couldn't find anything! Something is very wrong!
+{% else %}
+The last entry was from {{ days_since_last_entry }} days ago!
+{% endif %}
+
+Please go figure out what's broken :)

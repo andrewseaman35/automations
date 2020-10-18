@@ -5,7 +5,7 @@ import os
 
 import requests
 
-from base.lambda_handler_base import LambdaHandler
+from base.state_lambda_handler_base import StateLambdaHandler
 
 SEARCH_URL = 'https://ped.uspto.gov/api/queries'
 PAYLOAD_FILE = 'payload.json'
@@ -24,7 +24,7 @@ def get_days_since_update(last_update_timestamp):
     return delta.days
 
 
-class PatentNumberLambdaHandler(LambdaHandler):
+class PatentNumberLambdaHandler(StateLambdaHandler):
     sns_subject_template = "Patent Number Update"
     patent_application_format = 'patent_application-{}'
 
