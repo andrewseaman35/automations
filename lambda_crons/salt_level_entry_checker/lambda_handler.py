@@ -11,6 +11,7 @@ PROD_TABLE_NAME = 'salt_level'
 DEV_TABLE_NAME = 'salt_level_local'
 
 WATER_SOFTENER_ID = 'softener_one'
+DAYS_SINCE_THRESHOLD = 2
 
 
 class SaltLevelEntryCheckerLambdaHandler(LambdaHandler):
@@ -21,8 +22,8 @@ class SaltLevelEntryCheckerLambdaHandler(LambdaHandler):
         return DEV_TABLE_NAME if self.is_local else PROD_TABLE_NAME
 
     def build_content_from_result(self, result):
-        if result['days_since_last_entry'] == 0:
-            print("New salt level entry found within the past day, nothing to do!")
+        if result['days_since_last_entry'] >= 0 and result['days_since_last_entry'] <= DAYS_SINCE_THRESHOLD:
+            print("New salt level entry found within the {} days, nothing to do!".format(DAYS_SINCE_THRESHOLD))
             return None
 
         context = {

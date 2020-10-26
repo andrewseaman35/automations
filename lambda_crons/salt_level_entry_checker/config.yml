@@ -6,4 +6,4 @@ code:
   s3_key_format: jobs/salt_level_entry_checker_{nonce}.zip
 enabled: true
 schedule_expressions:
-  - cron(0 20 ? * * *)
+  - cron(0 18 ? * * *)
