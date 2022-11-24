@@ -27,7 +27,7 @@ class MAMEHighScoreLambdaHandler(LambdaHandler):
                 continue
 
             name = record["s3"]["object"]["key"]
-            changes.append(name)
+            changes.append(name.split('hi/')[1])
 
         print(changes)
         return {

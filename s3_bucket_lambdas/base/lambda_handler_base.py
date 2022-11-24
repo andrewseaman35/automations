@@ -56,7 +56,8 @@ class LambdaHandler():
             traceback.print_exc()
 
     def _handle_error(self, e):
-        content = 'Hello! Looks like your function failed...\n'
+        content = 'Hello!\n'
+        content += f"An error was encountered while running {self.__class__.__name__}.\n"
         content += 'Here\'s the exception: \n'
         content += '{}'.format(str(e))
         self.send_sns(
