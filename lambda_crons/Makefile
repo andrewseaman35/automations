@@ -1,11 +1,11 @@
 PACKAGE_DIR = packages
 
 deploy_venv: requirements.txt
-	virtualenv deploy_venv --python=python3 --no-site-packages
+	virtualenv deploy_venv --python=python3
 	deploy_venv/bin/pip install -r requirements.txt
 
 install_venv:
-	virtualenv install_venv --python=python3 --no-site-packages
+	virtualenv install_venv --python=python3
 
 _package_dir:
 	mkdir -p $(PACKAGE_DIR)
