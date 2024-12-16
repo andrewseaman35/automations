@@ -22,6 +22,9 @@ class BoundingBox():
             'height': self.height,
         }
 
+    def center(self):
+        return Point(int(self.left+(self.width/2)), int(self.top+self.height/2))
+
 @dataclass
 class Point():
     x: int
@@ -43,9 +46,9 @@ class Screen():
                               (0, 0, 255),
                               2
                             )
-            cv2.imshow("screen", image)
+            cv2.imshow("find_window", image)
             if (cv2.waitKey(33)) == ord('a'):
-                cv2.destroyAllWindows()
+                cv2.destroyWindow("find_window")
                 break
 
     def single(self):
