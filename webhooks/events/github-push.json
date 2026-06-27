@@ -1,0 +1,19 @@
+{
+  "version": "2.0",
+  "routeKey": "POST /hooks/github",
+  "rawPath": "/hooks/github",
+  "headers": {
+    "content-type": "application/json",
+    "x-github-event": "push",
+    "x-github-delivery": "00000000-0000-0000-0000-000000000000",
+    "x-hub-signature-256": "sha256=REPLACE_WITH_REAL_SIGNATURE"
+  },
+  "requestContext": {
+    "http": {
+      "method": "POST",
+      "path": "/hooks/github"
+    }
+  },
+  "body": "{\"ref\":\"refs/heads/main\",\"commits\":[{\"id\":\"abc123\"}],\"repository\":{\"full_name\":\"andrewseaman35/automations\"},\"sender\":{\"login\":\"andrewseaman35\"}}",
+  "isBase64Encoded": false
+}

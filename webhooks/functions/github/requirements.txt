@@ -1,0 +1,3 @@
+# GitHub webhook handler has no third-party dependencies.
+# boto3 is provided by the Lambda Python runtime; the handler base classes
+# come from the shared Lambda layer (see ../../shared/handlers).

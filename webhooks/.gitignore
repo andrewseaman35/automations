@@ -1,0 +1,11 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+crash.log
+
+# Build artifacts (function/layer zips)
+.build/
+__pycache__/
+*.pyc
